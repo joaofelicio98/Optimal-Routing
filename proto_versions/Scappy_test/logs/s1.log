@@ -1,0 +1,14 @@
+Calling target program-options parser
+[18:04:13.036] [bmv2] [D] [thread 20175] Set default default entry for table 'tbl_act': act - 
+[18:04:13.037] [bmv2] [D] [thread 20175] Set default default entry for table 'MyIngress.ipv4_lpm': MyIngress.send_to_cpu - 
+[18:04:13.037] [bmv2] [D] [thread 20175] Set default default entry for table 'tbl_act_0': act_0 - 
+Adding interface s1-eth1 as port 1
+[18:04:13.037] [bmv2] [D] [thread 20175] Adding interface s1-eth1 as port 1
+Adding interface s1-eth2 as port 2
+[18:04:13.064] [bmv2] [D] [thread 20175] Adding interface s1-eth2 as port 2
+Adding interface s1-eth3 as port 3
+[18:04:13.108] [bmv2] [D] [thread 20175] Adding interface s1-eth3 as port 3
+Adding interface s1-veth0 as port 255
+[18:04:13.140] [bmv2] [D] [thread 20175] Adding interface s1-veth0 as port 255
+[18:04:13.144] [bmv2] [E] [thread 20175] Add port operation failed
+[18:04:13.144] [bmv2] [E] [thread 20175] Cpu port 255 is used as a data port

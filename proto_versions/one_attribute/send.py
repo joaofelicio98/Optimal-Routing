@@ -26,21 +26,21 @@ def get_if():
 
 def main():
 
-    if len(sys.argv)<3:
-        print 'pass 2 arguments: <destination> "<message>"'
+    if len(sys.argv)<4:
+        print 'pass 2 arguments: <destination> "<distance> <seq_no>"'
         exit(1)
 
-    addr = socket.gethostbyname(sys.argv[1])
+    addr = socket.gethostbyname(str(sys.argv[1]))
     iface = get_if()
 
-    my_header = My_header(dst_addr = '10.0.1.1', distance = 30, seq_no = 2)
+    my_header = My_header(dst_addr = str(sys.argv[1]), distance = int(sys.argv[2]), seq_no = int(sys.argv[3]))
 
     my_header.show2()
     print
 
     print "sending on interface %s to %s" % (iface, str(addr))
     pkt =  Ether(src=get_if_hwaddr(iface), dst='ff:ff:ff:ff:ff:ff')
-    pkt = pkt /IP(dst=addr, proto=254) / my_header / sys.argv[2]
+    pkt = pkt /IP(proto=254) / my_header
     pkt.show2()
     sendp(pkt, iface=iface, verbose=False)
 

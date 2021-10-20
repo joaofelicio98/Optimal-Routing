@@ -156,7 +156,7 @@ class TopologyDB:
 if __name__ == '__main__':
     #testing
     topo = "topology.json"
-    file = "my_protocol"
+    file = "one_attribute"
     topo = TopologyDB(topo, file)
     print (topo.get_neighbor_by_port('s3', 2))
     print (topo.get_neighbor_by_port('s3', 4))

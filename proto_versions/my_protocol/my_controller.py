@@ -21,6 +21,8 @@ import threading
 
 MY_HEADER_PROTO = 254
 TOLERANCE = 2
+# Only used for testing by sending attributes with hosts
+testing = 2
 #stored elected attributes -> {destination:  [distance,seq_no,port]}
 # destination -> Destination IP into which the attribute is refering to
 # distance -> Distance to reach the destination
@@ -83,7 +85,7 @@ def readTableRules(p4info_helper, sw):
     :param sw: the switch connection
     """
     while True:
-        sleep(30)
+        sleep(10)
         print '\n----- Reading tables rules for %s -----' % sw.name
         for response in sw.ReadTableEntries():
             for entity in response.entities:
@@ -119,7 +121,6 @@ def install_initial_ipv4_rules(p4info_helper, topo_utils, sw, neighbors):
 def install_all_multicast_rules(p4info_helper, topo_utils, sw):
     intfs = topo_utils.get_all_node_interfaces(sw.name)
     for intf in intfs:
-        print "INTERFACE {}".format(intf)
         sendBroadcastRules(p4info_helper, sw_id=sw, port=int(intf))
 
 def get_if():
@@ -168,15 +169,16 @@ def startComputation(p4info_helper, topo_utils, sw, dst, seq_no, port, new):
 
 def sendNewComputation(p4info_helper, topo_utils, sw, neighbors, lock):
     while True:
-        sleep(1000) #wait 1 minutes
+        sleep(300) #wait 5 minutes
         with lock:
             #print "DEBUG: Acquired lock in sendNewComputation"
             for host in neighbors:
                 host_ip = topo_utils.get_host_ip(host).rsplit('/')[0]
-                list = search_stored_attr(host, "elected")
+                list = search_stored_attr(host_ip, "elected")
                 if list is not None:
                     seq_no = list[1] + 1
                     port = list[2]
+                    print "Sending with seq_no = {}".format(seq_no)
                     startComputation(p4info_helper, topo_utils, sw, host, seq_no, port, False)
                 else:
                     port = int(topo_utils.get_node_interface(sw.name, host))
@@ -288,10 +290,24 @@ def make_decision(p4info_helper, topo_utils, sw, packetIn_params):
     dst_addr = packetIn_params[1]
     distance = packetIn_params[2]
     seq_no = packetIn_params[3]
+
+    # Only used for testing by sending attributes with hosts
+    #if ingress_port == 1:
+    #    global testing
+    #    ingress_port = testing%2
+    #    ingress_port += 2
+    #    testing += 1
     attr = [distance, seq_no, ingress_port]
 
     elected = search_stored_attr(dst_addr, "elected")
     promised = search_stored_attr(dst_addr, "promised")
+
+
+    #if elected is not None:
+    #    print "IGRESS PORT: {}".format(ingress_port)
+    #    print "ELECTED PORT: {}".format(elected[2])
+    #    ls = ingress_port == elected[2]
+    #    print "EQUAL? {}".format(ls)
 
     #destination unknown
     if elected is None:
@@ -384,9 +400,10 @@ def make_decision(p4info_helper, topo_utils, sw, packetIn_params):
                 if compare_metric(distance, promised[0], "distance"):
                     save_attribute(dst_addr, attr, "promised", False)
                     print "DEBUG: Changed promised, better metric"
-        else:
+        elif seq_no > elected[1]:
             save_attribute(dst_addr, attr, "promised", True)
             print "DEBUG: New promised added, there was no promised for this destination"
+        print "DEBUG: Attribute discarded"
         return False
 
 
@@ -394,7 +411,7 @@ def main(p4info_file_path, bmv2_file_path, switch_id):
     # Instantiate a P4Runtime helper from the p4info file
     p4info_helper = p4runtime_lib.helper.P4InfoHelper(p4info_file_path)
 
-    topo_utils = utils.topology.TopologyDB("topology.json", "my_protocol")
+    topo_utils = utils.topology.TopologyDB("topology.json", "one_attribute")
 
     try:
         # Create a switch connection object for s1 and s2;
@@ -430,16 +447,15 @@ def main(p4info_file_path, bmv2_file_path, switch_id):
         for host in neighbors:
             port = int(topo_utils.get_node_interface(sw.name, host))
             startComputation(p4info_helper, topo_utils, sw, host, 1, port, True)
-        #print "ELECTED UPDATED: "
-        #print elected_attr
+
         #create a lock
         lock = threading.Lock()
 
         #create a new thread to start a new computation in x by x seconds
-        thread = threading.Thread(target=sendNewComputation,
-                                  args=(p4info_helper, topo_utils, sw, neighbors, lock))
-        thread.daemon = True
-        thread.start()
+    #    thread = threading.Thread(target=sendNewComputation,
+    #                              args=(p4info_helper, topo_utils, sw, neighbors, lock))
+    #    thread.daemon = True
+    #    thread.start()
 
         #For debugging
         thread2 = threading.Thread(target=readTableRules, args=(p4info_helper, sw))
@@ -450,8 +466,6 @@ def main(p4info_file_path, bmv2_file_path, switch_id):
         #NOTE: the name must be the same as the header in the p4 program
         packet_in_info = p4info_helper.get_controller_packet_metadata(name = 'packet_in')
         #print(packet_in_info)
-        #read all table rules
-    	#readTableRules(p4info_helper, sw)
 
         while True:
             packetin = sw.PacketIn()	    #Packet in!
@@ -468,8 +482,8 @@ def main(p4info_file_path, bmv2_file_path, switch_id):
                         params = []
                         #print("PAYLOAD: ", payload)
 
-                        packet = Ether(payload)
-                        packet.show2()
+                        #packet = Ether(payload)
+                        #packet.show2()
                         #header = My_header(packet)
                         #print "Destination: " + header.dst_addr
                         #print "Distance: " + header.distance
@@ -484,11 +498,14 @@ def main(p4info_file_path, bmv2_file_path, switch_id):
                                 value = p4runtime_lib.convert.decodeNum(metadata.value)
                             params.append(value)
                             #print'DEBUG: {} has value: {}'.format(metadata_info.name, value)
+                        print "GOT HERE"
 
                         if make_decision(p4info_helper, topo_utils, sw, params):
                             announce_attribute(p4info_helper, sw, payload, params)
+                            print "ELECTED"
+                            print elected_attr
                     #print "DEBUG: Releasing lock in main"
-
+                print "FINISHED"
                 packetin = None
 
 
